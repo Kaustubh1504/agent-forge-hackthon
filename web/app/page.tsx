@@ -2,6 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 
+// Minimal local types — SpeechRecognition is a browser global not yet in
+// TypeScript's stock lib.dom.d.ts.
+type AnySpeechRecognition = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: AnySpeechRecognitionEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: unknown) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+type AnySpeechRecognitionEvent = {
+  resultIndex: number;
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+};
+type SpeechRecCtor = new () => AnySpeechRecognition;
+
 const STATE_LABEL: Record<number, string> = {
   0: "QUEUED",
   1: "RUNNING",
@@ -51,7 +69,7 @@ export default function Home() {
   const [toolTrace, setToolTrace] = useState<
     { name: string; args: unknown; result: unknown }[]
   >([]);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<AnySpeechRecognition | null>(null);
   const chatEndRef = useRef<HTMLDivElement | null>(null);
 
   async function sendChat(text: string) {
@@ -104,14 +122,11 @@ export default function Home() {
   }
 
   function toggleMic() {
-    const SR: typeof SpeechRecognition | undefined =
-      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition })
-        .SpeechRecognition ??
-      (
-        window as unknown as {
-          webkitSpeechRecognition?: typeof SpeechRecognition;
-        }
-      ).webkitSpeechRecognition;
+    const win = window as unknown as {
+      SpeechRecognition?: SpeechRecCtor;
+      webkitSpeechRecognition?: SpeechRecCtor;
+    };
+    const SR = win.SpeechRecognition ?? win.webkitSpeechRecognition;
     if (!SR) {
       alert(
         "Speech recognition not supported in this browser. Try Chrome or Safari.",
@@ -122,12 +137,12 @@ export default function Home() {
       recognitionRef.current.stop();
       return;
     }
-    const rec = new SR();
+    const rec: AnySpeechRecognition = new SR();
     rec.continuous = false;
     rec.interimResults = true;
     rec.lang = "en-US";
     let finalText = "";
-    rec.onresult = (event: SpeechRecognitionEvent) => {
+    rec.onresult = (event) => {
       let interim = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const r = event.results[i];

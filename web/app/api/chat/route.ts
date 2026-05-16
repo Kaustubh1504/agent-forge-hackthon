@@ -89,21 +89,23 @@ export async function POST(req: NextRequest) {
       }
 
       for (const call of calls) {
+        if (call.type !== "function") continue;
+        const fn = call.function;
         let parsedArgs: Record<string, unknown> = {};
         try {
-          parsedArgs = JSON.parse(call.function.arguments || "{}");
+          parsedArgs = JSON.parse(fn.arguments || "{}");
         } catch {}
         let result: unknown;
         try {
-          result = await dispatchTool(call.function.name, parsedArgs);
+          result = await dispatchTool(fn.name, parsedArgs);
         } catch (e) {
           result = { error: (e as Error).message };
         }
-        toolTrace.push({ name: call.function.name, args: parsedArgs, result });
+        toolTrace.push({ name: fn.name, args: parsedArgs, result });
         convo.push({
           role: "tool",
           tool_call_id: call.id,
-          name: call.function.name,
+          name: fn.name,
           content: JSON.stringify(result),
         });
       }

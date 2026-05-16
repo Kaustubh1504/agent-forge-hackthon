@@ -60,8 +60,10 @@ type JobFlow = { ops: { args?: { expose?: unknown } }[] };
 export function computeJobUrls(flow: JobFlow, jobId: string): string[] {
   const urls: string[] = [];
   flow.ops.forEach((op, index) => {
-    if (!isOpExposed(op)) return;
-    for (const port of getExposePorts(op) as { port: number }[]) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const o = op as any;
+    if (!isOpExposed(o)) return;
+    for (const port of getExposePorts(o) as { port: number }[]) {
       urls.push(`https://${getExposeIdHash(jobId, index, port.port)}.${FRP}`);
     }
   });
@@ -88,7 +90,7 @@ export async function launchSim(
     timeout: timeoutSec,
     market: marketAddress,
   });
-  const urls = computeJobUrls(GAZEBO_JOB_SPEC as JobFlow, res.job);
+  const urls = computeJobUrls(GAZEBO_JOB_SPEC as unknown as JobFlow, res.job);
   return {
     jobId: res.job,
     tx: res.tx,
