@@ -1,0 +1,23 @@
+{
+  "version": "0.1",
+  "type": "container",
+  "meta": {
+    "trigger": "webapp",
+    "system_requirements": { "required_vram": 4 }
+  },
+  "ops": [
+    {
+      "type": "container/run",
+      "id": "sim",
+      "args": {
+        "image": "docker.io/tiryoh/ros2-desktop-vnc:humble",
+        "gpu": true,
+        "expose": [80, 8080],
+        "entrypoint": ["/bin/bash", "-c"],
+        "cmd": [
+          "set -x; mkdir -p /var/log/sim /root/.vnc; (cd /var/log/sim && python3 -m http.server 8080) >/dev/null 2>&1 & echo '--- install start' > /var/log/sim/gz-install.log; apt-get update -qq >> /var/log/sim/gz-install.log 2>&1 && apt-get install -y --no-install-recommends ignition-fortress >> /var/log/sim/gz-install.log 2>&1 && echo '--- install done' >> /var/log/sim/gz-install.log && echo 'ubuntu' | vncpasswd -f > /root/.vnc/passwd && chmod 600 /root/.vnc/passwd && printf '#!/bin/sh\\nxsetroot -solid \"#2e3440\"\\nDISPLAY=:1 ign gazebo -r -v 1 diff_drive.sdf > /var/log/sim/gazebo.log 2>&1\\n' > /root/.vnc/xstartup && chmod +x /root/.vnc/xstartup && rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 && echo '--- starting vncserver' > /var/log/sim/vnc.log && vncserver :1 -geometry 1600x900 -depth 24 >> /var/log/sim/vnc.log 2>&1 && sleep 3 && echo '--- starting websockify' > /var/log/sim/novnc.log && websockify --web=/usr/lib/novnc 80 localhost:5901 >> /var/log/sim/novnc.log 2>&1"
+        ]
+      }
+    }
+  ]
+}
