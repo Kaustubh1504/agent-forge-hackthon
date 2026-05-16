@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const STATE_LABEL: Record<number, string> = {
   0: "QUEUED",
@@ -26,6 +26,9 @@ const LOG_FILES = [
   "gz-install.log",
   "vnc.log",
   "novnc.log",
+  "env.log",
+  "xauth.log",
+  "xhost.log",
   "gazebo.log",
 ] as const;
 type LogFile = (typeof LOG_FILES)[number];
@@ -38,6 +41,114 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [logFile, setLogFile] = useState<LogFile>("gz-install.log");
   const [logContent, setLogContent] = useState<string>("");
+
+  // Chat state (text + voice agent)
+  type ChatMsg = { role: "user" | "assistant"; content: string };
+  const [chat, setChat] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [toolTrace, setToolTrace] = useState<
+    { name: string; args: unknown; result: unknown }[]
+  >([]);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+  async function sendChat(text: string) {
+    const trimmed = text.trim();
+    if (!trimmed || thinking) return;
+    const next: ChatMsg[] = [...chat, { role: "user", content: trimmed }];
+    setChat(next);
+    setInput("");
+    setThinking(true);
+    try {
+      const r = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: next }),
+      });
+      const data = await r.json();
+      if (data.error) {
+        setChat([
+          ...next,
+          { role: "assistant", content: `Error: ${data.error}` },
+        ]);
+      } else {
+        setChat([
+          ...next,
+          { role: "assistant", content: data.reply ?? "" },
+        ]);
+        setToolTrace(data.toolTrace ?? []);
+        // If the agent launched a sim, auto-attach the resulting job to the
+        // status / iframe panels so the user sees it light up.
+        const launch = (data.toolTrace ?? []).find(
+          (t: { name: string }) => t.name === "launch_sim",
+        );
+        if (
+          launch &&
+          typeof launch.result === "object" &&
+          launch.result &&
+          "jobId" in launch.result
+        ) {
+          setJobId((launch.result as { jobId: string }).jobId);
+        }
+      }
+    } catch (e) {
+      setChat([
+        ...next,
+        { role: "assistant", content: `Error: ${(e as Error).message}` },
+      ]);
+    } finally {
+      setThinking(false);
+    }
+  }
+
+  function toggleMic() {
+    const SR: typeof SpeechRecognition | undefined =
+      (window as unknown as { SpeechRecognition?: typeof SpeechRecognition })
+        .SpeechRecognition ??
+      (
+        window as unknown as {
+          webkitSpeechRecognition?: typeof SpeechRecognition;
+        }
+      ).webkitSpeechRecognition;
+    if (!SR) {
+      alert(
+        "Speech recognition not supported in this browser. Try Chrome or Safari.",
+      );
+      return;
+    }
+    if (listening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      return;
+    }
+    const rec = new SR();
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.lang = "en-US";
+    let finalText = "";
+    rec.onresult = (event: SpeechRecognitionEvent) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const r = event.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onend = () => {
+      setListening(false);
+      if (finalText.trim()) sendChat(finalText);
+    };
+    rec.onerror = () => setListening(false);
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  }
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chat.length, thinking]);
 
   async function launch() {
     setLaunching(true);
@@ -134,7 +245,10 @@ export default function Home() {
 
   const stateLabel =
     status?.state !== undefined ? STATE_LABEL[status.state] : null;
-  const url = status?.service_url;
+  const baseUrl = status?.service_url;
+  const url = baseUrl
+    ? `${baseUrl}/vnc.html?autoconnect=true&resize=remote&password=ubuntu`
+    : undefined;
   const image = status?.jobDefinition?.ops?.[0]?.args?.image;
   const elapsed = status?.timeStart
     ? Math.floor(Date.now() / 1000 - status.timeStart)
@@ -148,9 +262,93 @@ export default function Home() {
             Robot Sim Launcher
           </h1>
           <p className="text-sm text-zinc-500">
-            Nosana GPU · Gazebo · noVNC
+            Nosana GPU · Gazebo · noVNC · Qwen agent
           </p>
         </header>
+
+        <section className="border border-zinc-200 dark:border-zinc-800 rounded-md bg-white dark:bg-zinc-900 overflow-hidden">
+          <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+            <span className="text-xs uppercase tracking-wide text-zinc-500">
+              agent · qwen + mcp
+            </span>
+            <span className="text-xs text-zinc-400">
+              try: &ldquo;launch sim on nosana&rdquo; · &ldquo;show me gazebo
+              logs&rdquo; · &ldquo;stop the sim&rdquo;
+            </span>
+          </div>
+          <div className="max-h-72 overflow-auto p-3 space-y-3 text-sm">
+            {chat.length === 0 && !thinking && (
+              <p className="text-zinc-400 text-xs">
+                Type below or click the mic. The agent calls MCP tools
+                (launch_sim, get_sim_status, get_sim_logs, stop_sim) under the
+                hood.
+              </p>
+            )}
+            {chat.map((m, i) => (
+              <div
+                key={i}
+                className={`whitespace-pre-wrap rounded-md p-2 ${
+                  m.role === "user"
+                    ? "bg-zinc-100 dark:bg-zinc-800"
+                    : "bg-emerald-50 dark:bg-emerald-950/30"
+                }`}
+              >
+                <span className="text-xs uppercase tracking-wide text-zinc-500 mr-2">
+                  {m.role}
+                </span>
+                {m.content}
+              </div>
+            ))}
+            {thinking && (
+              <div className="text-xs text-zinc-500 animate-pulse">
+                thinking…
+              </div>
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          {toolTrace.length > 0 && (
+            <details className="text-xs text-zinc-500 border-t border-zinc-200 dark:border-zinc-800 px-3 py-2">
+              <summary className="cursor-pointer">
+                tool calls ({toolTrace.length})
+              </summary>
+              <pre className="mt-2 max-h-40 overflow-auto p-2 bg-zinc-100 dark:bg-zinc-900 rounded">
+                {JSON.stringify(toolTrace, null, 2)}
+              </pre>
+            </details>
+          )}
+          <div className="flex items-center gap-2 p-2 border-t border-zinc-200 dark:border-zinc-800">
+            <button
+              onClick={toggleMic}
+              disabled={thinking}
+              className={`px-3 py-2 rounded-md text-sm border ${
+                listening
+                  ? "bg-red-500 text-white border-red-600 animate-pulse"
+                  : "bg-white dark:bg-zinc-900 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              }`}
+              title={listening ? "stop listening" : "speak"}
+            >
+              {listening ? "● rec" : "🎙"}
+            </button>
+            <input
+              type="text"
+              value={input}
+              placeholder='Try: "launch sim on nosana"'
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendChat(input);
+              }}
+              disabled={thinking}
+              className="flex-1 px-3 py-2 rounded-md bg-zinc-50 dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-700 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            />
+            <button
+              onClick={() => sendChat(input)}
+              disabled={thinking || !input.trim()}
+              className="px-4 py-2 rounded-md bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-sm font-medium"
+            >
+              Send
+            </button>
+          </div>
+        </section>
 
         <section className="flex items-center gap-3">
           <button
