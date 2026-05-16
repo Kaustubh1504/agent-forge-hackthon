@@ -2,9 +2,9 @@
 
 **Voice-driven Gazebo robot simulations on decentralized GPUs.**
 
-### 🚀 **[Live demo → https://your-deploy.zeabur.app](https://your-deploy.zeabur.app)**
+### 🚀 **[Live demo → https://agent-forge-hackthon.vercel.app](https://agent-forge-hackthon.vercel.app/)**
 
-> Replace the URL above with your actual Zeabur (or self-hosted) URL once deployed. The MCP endpoint lives at `/api/mcp` on the same host.
+**Web MCP endpoint:** `https://agent-forge-hackthon.vercel.app/api/mcp`
 
 One natural-language command → a fresh GPU pod on Nosana → live Gazebo + noVNC streaming back into your browser, in ~2 minutes.
 
@@ -170,7 +170,7 @@ Open `/`, type or click 🎙 → say **"Launch sim on Nosana"**. The chat panel 
 ### From Claude Code / Claude Desktop (web MCP)
 
 ```bash
-claude mcp add --transport http robot-sim https://<your-deploy>/api/mcp
+claude mcp add --transport http robot-sim https://agent-forge-hackthon.vercel.app/api/mcp
 ```
 
 If `MCP_API_KEY` is set, append `--header "Authorization: Bearer <token>"`. Then chat naturally:
