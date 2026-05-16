@@ -434,29 +434,63 @@ export default function Home() {
           </section>
         )}
 
-        <div className="aspect-video w-full border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden bg-black grid place-items-center">
-          {serviceUp && url ? (
-            <iframe src={url} className="w-full h-full" />
-          ) : jobId ? (
-            <div className="text-zinc-400 text-sm text-center px-6">
-              {status?.state === 1
-                ? "Container running on Nosana. Waiting for the noVNC service to come up..."
-                : "Waiting for Nosana to schedule the container..."}
-              <br />
-              <code className="text-xs text-zinc-500">
-                {jobId.slice(0, 12)}…
-              </code>
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <div className="lg:col-span-2 h-125 border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden bg-black grid place-items-center">
+            {serviceUp && url ? (
+              <iframe src={url} className="w-full h-full" />
+            ) : jobId ? (
+              <div className="text-zinc-400 text-sm text-center px-6">
+                {status?.state === 1
+                  ? "Container running on Nosana. Waiting for the noVNC service to come up..."
+                  : "Waiting for Nosana to schedule the container..."}
+                <br />
+                <code className="text-xs text-zinc-500">
+                  {jobId.slice(0, 12)}…
+                </code>
+              </div>
+            ) : (
+              <div className="text-zinc-500 text-sm">
+                click <b>Launch sim on Nosana</b> to start
+              </div>
+            )}
+          </div>
+
+          <aside className="lg:col-span-1 h-125 border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden bg-zinc-50 dark:bg-zinc-900 flex flex-col">
+            <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-2 flex-wrap">
+              <span className="text-xs uppercase tracking-wide text-zinc-500">
+                logs
+              </span>
+              <span className="ml-auto text-xs text-zinc-400">
+                {jobId && status?.state === 1 ? "refresh 3s" : "idle"}
+              </span>
             </div>
-          ) : (
-            <div className="text-zinc-500 text-sm">
-              click <b>Launch sim on Nosana</b> to start
+            <div className="px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 flex flex-wrap gap-1">
+              {LOG_FILES.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setLogFile(f)}
+                  disabled={!jobId}
+                  className={`text-[10px] px-2 py-1 rounded disabled:opacity-40 ${
+                    logFile === f
+                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black"
+                      : "text-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                  }`}
+                >
+                  {f.replace(".log", "")}
+                </button>
+              ))}
             </div>
-          )}
-        </div>
+            <pre className="text-[11px] p-3 flex-1 overflow-auto whitespace-pre-wrap font-mono text-zinc-800 dark:text-zinc-200 leading-snug">
+              {jobId && status?.state === 1
+                ? logContent || "<no output yet>"
+                : "click Launch to start streaming logs"}
+            </pre>
+          </aside>
+        </section>
 
         {url && (
-          <p className="text-xs text-zinc-500">
-            stream url:{" "}
+          <p className="text-xs text-zinc-500 truncate">
+            stream:{" "}
             <a
               href={url}
               target="_blank"
@@ -480,35 +514,6 @@ export default function Home() {
               </>
             )}
           </p>
-        )}
-
-        {jobId && status?.state === 1 && (
-          <section className="border border-zinc-200 dark:border-zinc-800 rounded-md overflow-hidden bg-zinc-50 dark:bg-zinc-900">
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-zinc-200 dark:border-zinc-800">
-              <span className="text-xs uppercase tracking-wide text-zinc-500">
-                logs
-              </span>
-              {LOG_FILES.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setLogFile(f)}
-                  className={`text-xs px-2 py-1 rounded ${
-                    logFile === f
-                      ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black"
-                      : "text-zinc-600 hover:bg-zinc-200 dark:hover:bg-zinc-800"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-              <span className="ml-auto text-xs text-zinc-400">
-                refreshes every 3s
-              </span>
-            </div>
-            <pre className="text-xs p-3 max-h-72 overflow-auto whitespace-pre-wrap font-mono text-zinc-800 dark:text-zinc-200">
-              {logContent || "<no output yet>"}
-            </pre>
-          </section>
         )}
 
         {status && (
