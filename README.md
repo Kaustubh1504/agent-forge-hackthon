@@ -1,7 +1,7 @@
-# Robot Sim on Demand
+# Robot Sim on Demand - ONE CLICK TO LAUNCH A SIM
 
 **Voice-driven Gazebo robot simulations on decentralized GPUs.**
-**ONE CLICK TO LAUNCH A SIM **
+
 
 ### 🚀 **[Live demo → https://agent-forge-hackthon.vercel.app](https://agent-forge-hackthon.vercel.app/)**
 
