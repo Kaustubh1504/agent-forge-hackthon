@@ -1,5 +1,6 @@
 # Robot Sim on Demand 
 # ONE CLICK TO LAUNCH A SIM ON BROWSER!
+**No Expensive PC or Server. Any one from any where Launch, Train  and Collect Data
 
 **Voice-driven Gazebo robot simulations on decentralized GPUs.**
 
