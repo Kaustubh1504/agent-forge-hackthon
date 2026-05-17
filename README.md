@@ -9,6 +9,8 @@
 
 **Web MCP endpoint:** `https://agent-forge-hackthon.vercel.app/api/mcp`
 
+![Robot Sim Launcher — live Gazebo on Nosana with voice agent + logs](web/public/demo.png)
+
 One natural-language command → a fresh GPU pod on Nosana → live Gazebo + noVNC streaming back into your browser, in ~2 minutes.
 
 > *"Launch sim on Nosana"* → Qwen agent → MCP tool → Nosana GPU → Gazebo → live VNC iframe + log feed.
